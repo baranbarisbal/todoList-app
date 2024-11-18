@@ -8,15 +8,25 @@ import {
   TextInput,
   TouchableOpacity,
   Keyboard,
+  Button,
 } from "react-native";
+import { useEffect, useState } from "react";
+import * as Notifications from "expo-notifications"; // Import Notifications
 import color from "./assets/color";
-import { useState } from "react";
 import Task from "./components/Task";
-import DateTimePicker from "@react-native-community/datetimepicker";
 
 export default function App() {
   const [task, setTask] = useState("");
   const [taskItems, setTaskItems] = useState([]);
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener();
+
+    return () => {
+      if (subscription) {
+        subscription.remove();
+      }
+    };
+  }, []);
 
   const handleAddTask = () => {
     if (!task.trim()) return;
@@ -30,6 +40,36 @@ export default function App() {
 
     setTaskItems([...taskItems, newTask]);
     setTask("");
+  };
+
+  const scheduleNotification = async () => {
+    // Request permissions directly from expo-notifications
+    const { status } = await Notifications.getPermissionsAsync();
+
+    if (status !== "granted") {
+      const { status: newStatus } =
+        await Notifications.requestPermissionsAsync();
+
+      if (newStatus !== "granted") {
+        alert("Notification permission not granted!");
+        return;
+      }
+    }
+    if (Platform.OS === "android") {
+      Notifications.setNotificationChannelAsync("default", {
+        name: "default",
+        importance: Notifications.AndroidImportance.MAX,
+      });
+    }
+    // Schedule a notification
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Don't Forget What You Noted",
+        body: "Main body content of the notification",
+        data: { customData: "Some custom data" },
+      },
+      trigger: { seconds: 2 },
+    });
   };
 
   return (
@@ -77,7 +117,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: color.primary,
   },
-
   tasksWrapper: {
     paddingTop: 80,
     paddingHorizontal: 20,
